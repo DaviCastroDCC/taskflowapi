@@ -42,11 +42,21 @@ abstract class AbstractTaskFlowScenario {
         assertThat(workspace.get("callerRole").asText()).isEqualTo("OWNER");
         assertThat(workspace.get("slug").asText()).isEqualTo("acme-rockets");
 
+        JsonNode mine = body(exchange(get("/api/v1/workspaces"), ownerToken, null), 200);
+        assertThat(mine).hasSize(1);
+        assertThat(mine.get(0).get("id").asText()).isEqualTo(workspaceId);
+
+        JsonNode fetched = body(exchange(get("/api/v1/workspaces/" + workspaceId), ownerToken, null), 200);
+        assertThat(fetched.get("ownerId").asText()).isEqualTo(mine.get(0).get("ownerId").asText());
+
         exchange(
                 post("/api/v1/workspaces/" + workspaceId + "/members"),
                 ownerToken,
                 Map.of("email", "dev@acme.test", "role", "MEMBER"),
                 201);
+
+        JsonNode members = body(exchange(get("/api/v1/workspaces/" + workspaceId + "/members"), ownerToken, null), 200);
+        assertThat(members).hasSize(2);
 
         JsonNode project = body(
                 exchange(
