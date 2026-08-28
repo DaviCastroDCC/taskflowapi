@@ -1,0 +1,16 @@
+# Profile for the in-memory end-to-end test. It exists so the whole HTTP -> service -> JPA
+# stack can be exercised on a machine without Docker. The real integration tests run on
+# PostgreSQL via Testcontainers.
+spring:
+  datasource:
+    url: jdbc:h2:mem:taskflow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate.type.preferred_instant_jdbc_type: TIMESTAMP_UTC
