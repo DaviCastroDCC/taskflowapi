@@ -28,8 +28,13 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
         "/api/v1/auth/**",
+        // Actuator probes and the Prometheus scrape target. In a real deployment the
+        // management endpoints would be bound to an internal-only port/interface instead
+        // of being reachable from the public listener; kept on 8080 here to stay single-port.
         "/actuator/health",
         "/actuator/health/**",
+        "/actuator/info",
+        "/actuator/prometheus",
         "/v3/api-docs/**",
         "/swagger-ui/**",
         "/swagger-ui.html"

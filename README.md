@@ -43,6 +43,30 @@ export TASKFLOW_JWT_SECRET=$(openssl rand -base64 48)
 The app starts on `http://localhost:8080`. OpenAPI UI is at `/swagger-ui.html`, health at
 `/actuator/health`. Flyway creates the schema on first boot.
 
+### Full stack in containers
+
+`docker compose up --build` brings up the API alongside PostgreSQL, Prometheus, and a
+pre-provisioned Grafana:
+
+| Service    | URL                              | Notes                              |
+|------------|----------------------------------|------------------------------------|
+| API        | `http://localhost:8080`          | image built from the `Dockerfile`  |
+| Prometheus | `http://localhost:9090`          | scrapes `/actuator/prometheus`     |
+| Grafana    | `http://localhost:3000`          | anonymous view on; admin / admin   |
+
+The **TaskFlow API** dashboard (request rate, latency quantiles, status mix, JVM heap,
+Hikari pool, threads) is loaded automatically from `observability/grafana/dashboards`.
+
+The image is a multi-stage build on `eclipse-temurin:21`, runs as a non-root user, uses
+Spring Boot layered jars, and carries a `HEALTHCHECK` against the readiness probe.
+
+### Metrics
+
+`micrometer-registry-prometheus` exposes `/actuator/prometheus`; every meter is tagged
+`application=taskflow-api`, and `http.server.requests` publishes a latency histogram with
+SLO buckets at 50/100/200/500 ms and 1 s. Health exposes the Kubernetes-style
+`liveness`/`readiness` probe groups; readiness also gates on database connectivity.
+
 ## Configuration
 
 All settings have working defaults for local use; override via environment variables.
@@ -128,3 +152,30 @@ mvn verify      # everything, including Testcontainers integration + concurrency
 Integration tests spin up a throwaway PostgreSQL via Testcontainers and run the real
 application context. They are annotated `@Testcontainers(disabledWithoutDocker = true)`, so a
 machine without a Docker daemon still gets a green `mvn test`.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+- **build-test** — `./mvnw verify` (unit + slice + Testcontainers integration)
+- **codeql** — static analysis for Java, results in the repo's Security tab
+- **image** — build the container, scan it with Trivy (SARIF upload), attach a
+  SPDX SBOM as a build artifact, and on `main` push tags to
+  `ghcr.io/<owner>/taskflow-api` (`latest`, branch, and `sha-<commit>`)
+
+## Deploying to Kubernetes
+
+`deploy/k8s/` is a Kustomize base: namespace, config/secret, a demo StatefulSet Postgres,
+the API Deployment (2 replicas, rolling update with `maxUnavailable: 0`, startup/readiness/
+liveness probes, non-root + read-only root FS + dropped capabilities, topology spread),
+a ClusterIP Service, an HPA (CPU 70%, 2–6 replicas) and a PodDisruptionBudget.
+
+```bash
+cd deploy/k8s
+kustomize edit set image ghcr.io/CHANGE-ME/taskflow-api=ghcr.io/<owner>/taskflow-api:latest
+kubectl apply -k .
+kubectl -n taskflow rollout status deploy/taskflow-api
+```
+
+Swap the demo Postgres and the in-repo `Secret` for a managed database and a real secret
+source (External Secrets Operator, Vault, or a cloud secret store) outside of local use.

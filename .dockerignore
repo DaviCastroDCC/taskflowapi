@@ -1,0 +1,31 @@
+# Build output — rebuilt inside the image
+target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# VCS and CI
+.git/
+.github/
+
+# IDE / editor
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Local env and overrides
+.env
+src/main/resources/application-local.yml
+
+# Ops assets not needed in the build context
+deploy/
+observability/
+docs/
+*.md
+!README.md
+
+# OS cruft
+.DS_Store
+Thumbs.db

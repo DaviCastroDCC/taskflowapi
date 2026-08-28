@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-api
+  labels:
+    app.kubernetes.io/name: taskflow-api
+data:
+  TASKFLOW_DB_URL: jdbc:postgresql://taskflow-db:5432/taskflow
+  SERVER_PORT: "8080"
+  SPRING_JPA_OPEN_IN_VIEW: "false"
+---
+# Demo credentials only. In a real cluster this comes from an external secret
+# manager (External Secrets Operator, Vault, cloud secret store) — never committed.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taskflow-api
+  labels:
+    app.kubernetes.io/name: taskflow-api
+type: Opaque
+stringData:
+  TASKFLOW_DB_USER: taskflow
+  TASKFLOW_DB_PASSWORD: taskflow
+  # Generate a real one: openssl rand -base64 48
+  TASKFLOW_JWT_SECRET: change-me-with-at-least-32-bytes-of-random-material

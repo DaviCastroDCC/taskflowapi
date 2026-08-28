@@ -1,0 +1,70 @@
+# Demo database so `kubectl apply -k deploy/k8s` works end to end on a local
+# cluster (kind / minikube / k3d). Use a managed database in any real environment.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: taskflow-db
+  labels:
+    app.kubernetes.io/name: taskflow-db
+spec:
+  serviceName: taskflow-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: taskflow-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: taskflow-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: taskflow
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-api
+                  key: TASKFLOW_DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-api
+                  key: TASKFLOW_DB_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "taskflow", "-d", "taskflow"]
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-db
+  labels:
+    app.kubernetes.io/name: taskflow-db
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: taskflow-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
